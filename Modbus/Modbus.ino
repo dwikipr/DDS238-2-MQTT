@@ -9,10 +9,10 @@
 #define DEBUG
 #define ARDUINO_UNO
 
-#define ARDUINO_CLIENT_ID "powerMeter1" // Client ID for Arduino pub/sub
+#define ARDUINO_CLIENT_ID "powerMeter1"                     // Client ID for Arduino pub/sub
 
 #ifdef AUTHENTICATE
-const char user[] = "powermeter"; // broker key
+const char user[] = "powermeter"; // broker key  
 const char pass[] = "p0w3rm3t3r"; // broker secret
 const char exportedenergyAddress[] = "/powermeter/1/exportedenergy";
 const char importedenergyAddress[] = "/powermeter/1/importedenergy";
@@ -39,13 +39,12 @@ uint32_t tmpInt32, exportedenergy, importedenergy;
 uint16_t tmpInt16, voltage, current, activepower, reactivepower, powerfactor, frequency;
 int j, i = 0;
 
-void callback(char *topic, byte *payload, unsigned int length)
-{
+
+void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
-  for (int i = 0; i < length; i++)
-  {
+  for (int i=0;i<length;i++) {
     Serial.print((char)payload[i]);
   }
   Serial.println();
@@ -54,8 +53,7 @@ void callback(char *topic, byte *payload, unsigned int length)
 EthernetClient ethClient;
 PubSubClient client(ethClient);
 
-void setup()
-{
+void setup() { 
   Serial.begin(115200);
   Serial.println("Get Data Modbus");
   Serial.println("");
@@ -63,57 +61,49 @@ void setup()
   clearValues();
 
 #ifdef DHCP
-  if (Ethernet.begin(mac) == 0)
-  {
+  if (Ethernet.begin(mac) == 0) {
 #ifdef DEBUG
     Serial.println("Failed to configure Ethernet using DHCP");
 #endif
     // no point in carrying on, so do nothing forevermore:
-    while (true)
-      ;
+    while(true);
   }
 #else
   Ethernet.begin(mac, myIP);
 #endif
-
+  
   // MTTQ parameters
   client.setServer(mqttIP, 1883);
   client.setCallback(callback);
 
-  if (Ethernet.linkStatus() == LinkOFF)
-  {
+  if (Ethernet.linkStatus() == LinkOFF) {
     delay(500);
-    if (Ethernet.linkStatus() == LinkOFF)
-    {
+    if (Ethernet.linkStatus() == LinkOFF) {
       Serial.println("Ethernet cable is not connected.");
-    }
-    else
-    {
+    } 
+    else{
       Serial.println(Ethernet.localIP());
     }
   }
   Serial1.begin(9600);
 }
 
-void loop()
-{
-  if (!client.connected())
-  {
+void loop() {
+  if (!client.connected()) {
     reconnect();
   }
-
+  
   refreshData();
-#ifdef DEBUG
+  #ifdef DEBUG
   Serial.print((String)exportedenergy + " " + (String)importedenergy + " " + (String)voltage + " " + (String)current + " " + (String)activepower + " " + (String)reactivepower + " " + (String)powerfactor + " " + (String)frequency);
   Serial.println(" ");
-#endif
-
+  #endif
+  
   client.loop();
   delay(200);
 }
 
-void clearValues()
-{
+void clearValues() {
   exportedenergy = 0;
   importedenergy = 0;
   voltage = 0;
@@ -124,8 +114,7 @@ void clearValues()
   frequency = 0;
 }
 
-void publishValues()
-{
+void publishValues() {
   client.publish(exportedenergyAddress, buff);
   client.publish(importedenergyAddress, buff);
   client.publish(voltageAddress, buff);
@@ -136,148 +125,122 @@ void publishValues()
   client.publish(frequencyAddress, buff);
 }
 
-uint16_t returnInt16(byte offset)
-{
+uint16_t returnInt16(byte offset){
   tmpInt16 = received[offset];
   tmpInt16 <<= 8;
-  tmpInt16 += received[offset + 1];
+  tmpInt16 += received[offset+1];
   return tmpInt16;
 }
 
-uint32_t returnInt32(byte offset)
-{
+uint32_t returnInt32(byte offset){
   tmpInt32 = returnInt16(offset);
   tmpInt32 <<= 16;
-  tmpInt32 += returnInt16(offset + 2);
+  tmpInt32 += returnInt16(offset+2);
   return tmpInt32;
 }
 
-void reconnect()
-{
+void reconnect() {
   // Loop until we're reconnected
-  while (!client.connected())
-  {
-#ifdef DEBUG
+  while (!client.connected()) {
+    #ifdef DEBUG
     Serial.print("Attempting connection...");
-#endif
+    #endif
     // Attempt to connect
-    if (client.connect("arduinoClient", "powermeter", "p0w3rm3t3r"))
-    {
-#ifdef DEBUG
+    if (client.connect("arduinoClient", "powermeter", "p0w3rm3t3r")) {
+      #ifdef DEBUG
       Serial.println("connected");
-// Once connected, publish an announcement...
-// client.publish("/powermeter/1/voltage","2200");
-#endif
-    }
-    else
-    {
-#ifdef DEBUG
+      // Once connected, publish an announcement...
+      // client.publish("/powermeter/1/voltage","2200");
+      #endif
+    } else {
+      #ifdef DEBUG
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
       // Wait 5 seconds before retrying
       delay(5000);
-#endif
+      #endif
     }
   }
 }
 
-void refreshData()
-{
+void refreshData(){
   Serial1.write(data, sizeof(data));
   delay(50);
   itoa(0, buff, 10);
-  if (Serial1.available())
-  {
+  if (Serial1.available()) {
     i = 0;
     byteRead = Serial1.read();
     received[i++] = byteRead;
-
-    if (byteRead == 0x01)
-    {
+    
+    if (byteRead == 0x01) {
       byteRead = Serial1.read();
       received[i++] = byteRead;
-      if (byteRead == 0x03)
-      {
+      if (byteRead == 0x03) {
         bytesRead = Serial1.read() * 2 + 2;
         received[i++] = byteRead;
-        for (j = 0; j < bytesRead; j++)
-        {
+        for (j=0; j<bytesRead; j++) {
           byteRead = Serial1.read();
           received[i++] = byteRead;
         }
 
-        if (returnInt32(3) != exportedenergy)
-        {
+        if (returnInt32(3) != exportedenergy) {
           exportedenergy = returnInt16(11);
           itoa(exportedenergy, buff, 10);
           client.publish(exportedenergyAddress, buff);
         }
 
-        if (returnInt32(7) != importedenergy)
-        {
+        if (returnInt32(7) != importedenergy) {
           importedenergy = returnInt16(11);
           itoa(importedenergy, buff, 10);
           client.publish(importedenergyAddress, buff);
         }
 
-        if (returnInt16(11) != voltage)
-        {
+        if (returnInt16(11) != voltage) {
           voltage = returnInt16(11);
           itoa(voltage, buff, 10);
           client.publish(voltageAddress, buff);
         }
 
-        if (returnInt16(13) != current)
-        {
+        if (returnInt16(13) != current) {
           current = returnInt16(13);
           itoa(current, buff, 10);
           client.publish(currentAddress, buff);
         }
-
-        if (returnInt16(15) != activepower)
-        {
+        
+        if (returnInt16(15) != activepower) {
           activepower = returnInt16(13);
           itoa(activepower, buff, 10);
           client.publish(activepowerAddress, buff);
         }
 
-        if (returnInt16(17) != reactivepower)
-        {
+        if (returnInt16(17) != reactivepower) {
           reactivepower = returnInt16(13);
           itoa(reactivepower, buff, 10);
           client.publish(reactivepowerAddress, buff);
         }
 
-        if (returnInt16(19) != powerfactor)
-        {
+        if (returnInt16(19) != powerfactor) {
           powerfactor = returnInt16(13);
           itoa(powerfactor, buff, 10);
           client.publish(powerfactorAddress, buff);
         }
 
-        if (returnInt16(21) != frequency)
-        {
+        if (returnInt16(21) != frequency) {
           frequency = returnInt16(21);
           itoa(frequency, buff, 10);
           client.publish(frequencyAddress, buff);
         }
-      }
-      else
-      {
+      } else {
         clearValues();
         publishValues();
       }
-    }
-    else
-    {
+    } else {
       clearValues();
       publishValues();
     }
-  }
-  else
-  {
+  } else {
     clearValues();
     publishValues();
-  }
+ }
 }
